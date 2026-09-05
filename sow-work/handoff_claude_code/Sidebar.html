@@ -179,7 +179,10 @@
       const q = document.getElementById('buscarCliente').value.toLowerCase();
       const contenedor = document.getElementById('listaClientes');
       contenedor.innerHTML = '';
-      clientes.filter((c) => c.toLowerCase().includes(q)).forEach((nombre) => {
+      clientes
+        .filter((c) => c.toLowerCase().includes(q))
+        .sort((a, b) => a.localeCompare(b, 'es'))
+        .forEach((nombre) => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'cliente-item' + (nombre === clienteSeleccionado ? ' activo' : '');
