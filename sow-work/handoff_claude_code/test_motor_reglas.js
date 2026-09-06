@@ -1,81 +1,26 @@
 /**
- * Arnés de pruebas LOCAL (Node.js) para auditar el motor de reglas v3
- * (con la nueva capa de clasificación de prioridad) antes de subir la
- * versión a Apps Script. Espejo exacto de la lógica pura de
- * prototipo_entregables_sow.gs — sin nada de Google (DriveApp/DocumentApp).
+ * Arnés de pruebas LOCAL (Node.js) del motor de reglas.
+ *
+ * Correr con:  node test_motor_reglas.js
+ *
+ * QUÉ CAMBIÓ: antes este archivo traía una COPIA pegada a mano de
+ * TABLA_REGLAS / evaluarReglas() / clasificarPrioridad(). Esa copia podía
+ * quedarse atrás sin que nadie lo notara — las pruebas en verde mientras el
+ * archivo real ya decía otra cosa. Ahora se carga `prototipo_entregables_sow.gs`
+ * tal cual (ver apps_script_sandbox.js), así que lo que se prueba aquí es
+ * exactamente el código que se sube a Apps Script. No hay copia que mantener.
+ *
+ * Estas pruebas cubren SOLO la lógica pura (reglas y prioridad). No tocan
+ * Drive ni Docs — la generación de PDF se prueba en el Sheet real corriendo
+ * `probarPrototipo()`.
  */
 
-// ---- Copia idéntica de la lógica pura del prototipo v3 ----
+const { cargarArchivosGs } = require('./apps_script_sandbox');
 
-const TABLA_REGLAS = [
-  {
-    producto: 'Divisas / Cambios',
-    prioridad: 1,
-    condicion: (r) => r.bancoCambios && r.bancoCambios !== 'BASE',
-    oportunidad: (r) => `Cambios con ${r.bancoCambios}.`,
-    preguntaGuion: '¿Con qué banco haces tus cambios?',
-  },
-  {
-    producto: 'Crédito',
-    prioridad: 2,
-    condicion: (r) => r.tieneCreditoOtroBanco === true,
-    oportunidad: (r) => `Crédito con ${r.bancoCredito || 'otro banco'}.`,
-    preguntaGuion: '¿Cuánto crédito tienes y con quién?',
-  },
-  {
-    producto: 'Comercio exterior',
-    prioridad: 3,
-    condicion: (r) => r.montoExportacionMensual || r.montoImportacionMensual,
-    oportunidad: (r) => `Exporta/importa.`,
-    preguntaGuion: '¿Cuánto exportas/importas al mes?',
-  },
-  {
-    producto: 'Captación',
-    prioridad: 4,
-    condicion: (r) => r.bancoPrincipalCaptacion && r.bancoPrincipalCaptacion !== 'BASE',
-    oportunidad: (r) => `Captación en ${r.bancoPrincipalCaptacion}.`,
-    preguntaGuion: '¿Con qué banco tienen su captación principal?',
-  },
-];
-
-function evaluarReglas(respuesta, tablaReglas) {
-  return tablaReglas
-    .filter((regla) => regla.condicion(respuesta))
-    .map((regla) => ({
-      producto: regla.producto,
-      prioridad: regla.prioridad,
-      justificacion: regla.oportunidad(respuesta),
-      pregunta: regla.preguntaGuion,
-    }))
-    .sort((a, b) => a.prioridad - b.prioridad);
-}
-
-function clasificarPrioridad(respuesta) {
-  const brechaAlta =
-    (respuesta.bancoCambios && respuesta.bancoCambios !== 'BASE') ||
-    (respuesta.tieneCreditoOtroBanco === true && respuesta.bancoCredito !== 'BASE');
-
-  if (brechaAlta) {
-    const mismoBancoControlaAmbos =
-      respuesta.tieneCreditoOtroBanco === true &&
-      respuesta.bancoCredito &&
-      respuesta.bancoCambios &&
-      respuesta.bancoCredito === respuesta.bancoCambios;
-
-    if (!mismoBancoControlaAmbos) {
-      return { prioridad: 1, etiqueta: 'Prioridad 1 — ataque directo' };
-    }
-    return { prioridad: 2, etiqueta: 'Prioridad 2 — requiere oferta integral' };
-  }
-
-  if (respuesta.recibeCotizacionesOtrosBancos === true) {
-    return { prioridad: 2, etiqueta: 'Prioridad 2 — cliente disputado' };
-  }
-
-  return { prioridad: 3, etiqueta: 'Prioridad 3 — rutina normal' };
-}
-
-// ---- Arnés de pruebas ----
+const proyecto = cargarArchivosGs(['prototipo_entregables_sow.gs']);
+const TABLA_REGLAS = proyecto.leer('TABLA_REGLAS');
+const evaluarReglas = proyecto.leer('evaluarReglas');
+const clasificarPrioridad = proyecto.leer('clasificarPrioridad');
 
 let pasadas = 0;
 let fallidas = 0;
@@ -132,8 +77,34 @@ escenario('Reproducción del error reportado (evaluarReglas sin argumentos)', ()
     evaluarReglas(undefined, undefined);
     assert(false, 'debía tronar al llamar evaluarReglas() sin argumentos');
   } catch (e) {
-    assert(e instanceof TypeError, `reproduce el mismo tipo de error visto antes: "${e.message}"`);
+    // Se compara por nombre y no con `instanceof`: el error nace dentro del
+    // sandbox donde se carga el .gs, y ahi TypeError es una clase distinta a la
+    // de este archivo, asi que `instanceof` daria falso aunque el error sea el mismo.
+    assert(e.name === 'TypeError', `reproduce el mismo tipo de error visto antes: "${e.message}"`);
   }
+});
+
+// ---- Pruebas nuevas de esta auditoría ----
+
+escenario('Crédito que ya está con BASE no es una oportunidad', () => {
+  // El flujo de preguntas permite responder "sí tiene crédito" y luego elegir
+  // BASE. Antes de este arreglo, el PDF le decía al asesor que comparara ese
+  // crédito "contra condiciones BASE" — compitiendo contra su propio banco.
+  const r = { nombre: 'F', bancoCambios: 'BASE', tieneCreditoOtroBanco: true, bancoCredito: 'BASE', recibeCotizacionesOtrosBancos: false };
+  const op = evaluarReglas(r, TABLA_REGLAS);
+  assert(!op.some((o) => o.producto === 'Crédito'), 'no debe reportar Crédito como oportunidad');
+  assert(clasificarPrioridad(r).prioridad === 3, 'todo con BASE y sin cotizaciones → prioridad 3');
+});
+
+escenario('Guarda de gobernanza sobre TABLA_REGLAS', () => {
+  // Regla no negociable: NO se agregan productos nuevos (Inversiones,
+  // Coberturas, BASEinet) hasta que Gustavo/Julián definan sus preguntas de
+  // descubrimiento. Esta prueba falla en automático si alguien los agrega.
+  assert(
+    TABLA_REGLAS.map((regla) => regla.producto).join('|') ===
+      'Divisas / Cambios|Crédito|Comercio exterior|Captación',
+    'la tabla trae solo los 4 productos aprobados, en el orden acordado'
+  );
 });
 
 console.log(`\n---\nResultado: ${pasadas} pruebas OK, ${fallidas} fallidas.`);

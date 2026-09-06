@@ -81,7 +81,10 @@ const TABLA_REGLAS = [
   {
     producto: 'Crédito',
     prioridad: 2,
-    condicion: (r) => r.tieneCreditoOtroBanco === true,
+    // Se excluye BASE a proposito: si el credito ya esta con BASE no es una
+    // brecha, y sin este filtro el PDF le decia al asesor que compitiera contra
+    // su propio banco. clasificarPrioridad() ya aplicaba la misma exclusion.
+    condicion: (r) => r.tieneCreditoOtroBanco === true && r.bancoCredito !== 'BASE',
     oportunidad: (r) =>
       `El cliente tiene crédito vigente con ${r.bancoCredito || 'otro banco'} a una tasa reportada de ` +
       `${r.tasaCreditoActual || 'N/D'}. Vale la pena comparar contra condiciones BASE.`,
@@ -492,6 +495,23 @@ function ejecutarPruebasMotorReglas() {
     error = e;
   }
   verificar('Llamar evaluarReglas() sin argumentos truena de forma controlada (esto fue lo que viste)', error !== null);
+
+  // 7. Credito marcado como "si" pero el banco es BASE: no es una brecha.
+  // Antes se reportaba como oportunidad y el PDF invitaba a competir contra BASE.
+  r = { nombre: 'Cliente F', bancoCambios: 'BASE', tieneCreditoOtroBanco: true, bancoCredito: 'BASE', recibeCotizacionesOtrosBancos: false };
+  op = evaluarReglas(r, TABLA_REGLAS);
+  prio = clasificarPrioridad(r);
+  verificar('Credito que ya esta con BASE no se reporta como oportunidad', !op.some((o) => o.producto === 'Crédito'));
+  verificar('Todo con BASE y sin cotizaciones de otros bancos -> Prioridad 3', prio.prioridad === 3);
+
+  // 8. Guarda de gobernanza: la tabla de reglas solo puede traer los cuatro
+  // productos que Gustavo/Julian ya validaron. Inversiones, Coberturas y
+  // BASEinet NO se agregan hasta que existan sus preguntas de descubrimiento.
+  verificar(
+    'TABLA_REGLAS sigue teniendo solo los 4 productos aprobados',
+    TABLA_REGLAS.map((regla) => regla.producto).join('|') ===
+      'Divisas / Cambios|Crédito|Comercio exterior|Captación'
+  );
 
   Logger.log('---');
   Logger.log(pasadas + ' pruebas OK, ' + fallidas + ' fallidas.');
