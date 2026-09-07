@@ -1,2 +1,6 @@
 # Los ZIP se generan con armar_zip.py; no se versionan.
 paquetes/
+
+# Copias que genera vista_previa_panel/preparar.py para revisar el panel.
+vista_previa_panel/sidebar.html
+vista_previa_panel/sidebar_original.html

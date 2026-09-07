@@ -114,6 +114,18 @@
     .menu-opcion-sub { font-size: 11.5px; color: var(--gris); margin-top: 2px; line-height: 1.35; }
     .menu-resultado { font-size: 11.5px; margin-top: 10px; padding: 9px 11px; border-radius: 5px; background: var(--gris-fondo); color: #3B3B3B; }
 
+    /* Lista de opciones propia, en vez del <select> nativo. El panel es un
+       iframe angosto y el navegador recorta la lista del <select> a lo que se
+       ve del iframe: con 12 bancos, las ultimas opciones quedaban fuera de
+       alcance. Esto es contenido normal de la pagina, asi que se puede
+       desplazar como cualquier otra cosa. */
+    .combo-lista {
+      margin-top: 6px; max-height: 190px; overflow-y: auto;
+      border: 1px solid var(--gris-fondo); border-radius: 5px; padding: 6px;
+    }
+    .combo-lista .cliente-item:last-child { margin-bottom: 0; }
+    .combo-vacio { font-size: 12px; color: var(--gris); padding: 4px 2px; }
+
     .historial-item { border: 1px solid var(--gris-borde); border-radius: 6px; padding: 9px 11px; margin-bottom: 7px; }
     .historial-nombre { font-size: 12.5px; font-weight: 600; }
     .historial-dato { font-size: 11.5px; color: var(--gris); margin-top: 2px; line-height: 1.4; }
@@ -185,12 +197,10 @@
     <input type="text" id="giroOtro" style="display:none; margin-top:6px;" placeholder="Escribe el giro">
 
     <label>¿Con qué banco tiene su captación principal?</label>
-    <select id="bancoCaptacion" onchange="alternarOtro('bancoCaptacion')"></select>
-    <input type="text" id="bancoCaptacionOtro" style="display:none; margin-top:6px;" placeholder="Escribe el nombre del banco">
+    <div id="comboBancoCaptacion"></div>
 
     <label>¿Con qué banco hace sus operaciones de cambios?</label>
-    <select id="bancoCambios" onchange="alternarOtro('bancoCambios')"></select>
-    <input type="text" id="bancoCambiosOtro" style="display:none; margin-top:6px;" placeholder="Escribe el nombre del banco">
+    <div id="comboBancoCambios"></div>
 
     <label>¿Tiene crédito vigente con otro banco?</label>
     <div class="toggle-row">
@@ -200,8 +210,7 @@
 
     <div id="bancoCreditoWrap" style="display:none;">
       <label>¿Con qué banco tiene ese crédito?</label>
-      <select id="bancoCredito" onchange="alternarOtro('bancoCredito')"></select>
-      <input type="text" id="bancoCreditoOtro" style="display:none; margin-top:6px;" placeholder="Escribe el nombre del banco">
+      <div id="comboBancoCredito"></div>
     </div>
 
     <label>¿Recibe cotizaciones o reportes de mercado de otro banco?</label>
@@ -297,25 +306,89 @@
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    function llenarSelectoresDeBanco() {
-      ['bancoCaptacion', 'bancoCambios', 'bancoCredito'].forEach(function (id) {
-        var sel = document.getElementById(id);
-        var html = '<option value="">Selecciona…</option>';
-        BANCOS.forEach(function (b) {
-          // El banco del crédito se pregunta como "con OTRO banco", así que
-          // ofrecer BASE ahí solo genera respuestas contradictorias.
-          if (id === 'bancoCredito' && b.valor === 'BASE') return;
-          html += '<option value="' + escapar(b.valor) + '">' + escapar(b.texto) + '</option>';
+    // Los tres campos de banco usan el mismo patrón que el buscador de cliente
+    // del paso 1: escribes y se filtra. Antes eran <select> nativos y el
+    // navegador recortaba su lista al alto visible del iframe del panel.
+    var CAMPOS_BANCO = ['bancoCaptacion', 'bancoCambios', 'bancoCredito'];
+    var bancoElegido = {};
+
+    function inicializarCombosDeBanco() {
+      CAMPOS_BANCO.forEach(function (idCampo) {
+        var contenedor = document.getElementById('combo' + idCampo.charAt(0).toUpperCase() + idCampo.slice(1));
+        contenedor.innerHTML =
+          '<input type="text" id="' + idCampo + 'Texto" autocomplete="off" ' +
+          'placeholder="Escribe o elige el banco…">' +
+          '<div class="combo-lista" id="' + idCampo + 'Lista" style="display:none;"></div>';
+
+        var caja = document.getElementById(idCampo + 'Texto');
+        caja.addEventListener('focus', function () { abrirListaDeBancos(idCampo); });
+        caja.addEventListener('input', function () {
+          bancoElegido[idCampo] = null; // lo escrito manda sobre lo elegido antes
+          abrirListaDeBancos(idCampo);
         });
-        html += '<option value="' + VALOR_OTRO + '">Otro (especifica)</option>';
-        sel.innerHTML = html;
       });
     }
-    llenarSelectoresDeBanco();
 
-    // Si eliges "Otro (especifica)" se abre un cuadro para escribir el nombre.
-    // Antes se guardaba la palabra "Otro" tal cual y el PDF acababa diciendo
-    // "hace sus operaciones de cambios con Otro".
+    /** Bancos que aplican al campo: el del crédito se pregunta como "con OTRO
+     *  banco", así que ofrecer BASE ahí solo genera respuestas contradictorias. */
+    function bancosDelCampo(idCampo) {
+      return BANCOS.filter(function (b) {
+        return !(idCampo === 'bancoCredito' && b.valor === 'BASE');
+      });
+    }
+
+    function abrirListaDeBancos(idCampo) {
+      var caja = document.getElementById(idCampo + 'Texto');
+      var lista = document.getElementById(idCampo + 'Lista');
+      var escrito = caja.value.trim();
+      var q = normalizar(escrito);
+
+      lista.innerHTML = '';
+      var opciones = bancosDelCampo(idCampo);
+      var coincidencias = opciones.filter(function (b) { return normalizar(b.texto).indexOf(q) !== -1; });
+
+      coincidencias.forEach(function (b) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'cliente-item' + (bancoElegido[idCampo] === b.valor ? ' activo' : '');
+        btn.textContent = b.texto;
+        btn.onclick = function () { elegirBanco(idCampo, b.valor, b.texto); };
+        lista.appendChild(btn);
+      });
+
+      // Cualquier banco que no esté en la lista se puede escribir tal cual.
+      // Esto sustituye a la vieja opción "Otro (especifica)".
+      // Solo se ofrece cuando NO hay ninguna coincidencia: si se ofreciera
+      // junto a los resultados, un nombre a medio escribir ("bajio") se podría
+      // guardar como si fuera el banco, y eso acaba impreso en el PDF.
+      if (escrito !== '' && coincidencias.length === 0) {
+        var btnLibre = document.createElement('button');
+        btnLibre.type = 'button';
+        btnLibre.className = 'cliente-item nuevo' + (bancoElegido[idCampo] === escrito ? ' activo' : '');
+        btnLibre.innerHTML = 'Usar «' + escapar(escrito) + '»' +
+          '<span class="memoria">Banco que no está en la lista</span>';
+        btnLibre.onclick = function () { elegirBanco(idCampo, escrito, escrito); };
+        lista.appendChild(btnLibre);
+      }
+
+      if (lista.children.length === 0) {
+        lista.innerHTML = '<div class="combo-vacio">Escribe el nombre del banco.</div>';
+      }
+      lista.style.display = 'block';
+    }
+
+    function elegirBanco(idCampo, valor, texto) {
+      bancoElegido[idCampo] = valor;
+      document.getElementById(idCampo + 'Texto').value = texto;
+      document.getElementById(idCampo + 'Texto').className = '';
+      document.getElementById(idCampo + 'Lista').style.display = 'none';
+    }
+
+    inicializarCombosDeBanco();
+
+    function esCampoDeBanco(idCampo) { return CAMPOS_BANCO.indexOf(idCampo) !== -1; }
+
+    // Si eliges "Otro (especifica)" en el giro se abre un cuadro para escribirlo.
     function alternarOtro(idCampo) {
       var sel = document.getElementById(idCampo);
       var texto = document.getElementById(idCampo + 'Otro');
@@ -324,6 +397,7 @@
     }
 
     function valorDe(idCampo) {
+      if (esCampoDeBanco(idCampo)) return bancoElegido[idCampo] || '';
       var sel = document.getElementById(idCampo);
       if (sel.value === VALOR_OTRO) return document.getElementById(idCampo + 'Otro').value.trim();
       return sel.value;
@@ -500,6 +574,7 @@
     function faltantes() {
       var falta = [];
       ['giro', 'bancoCaptacion', 'bancoCambios', 'bancoCredito'].forEach(function (id) {
+        if (esCampoDeBanco(id)) { document.getElementById(id + 'Texto').className = ''; return; }
         document.getElementById(id).className = '';
         var extra = document.getElementById(id + 'Otro');
         if (extra) extra.className = '';
@@ -515,6 +590,7 @@
     }
 
     function marcar(id) {
+      if (esCampoDeBanco(id)) { document.getElementById(id + 'Texto').className = 'campo-faltante'; return; }
       var sel = document.getElementById(id);
       if (sel.value === VALOR_OTRO) document.getElementById(id + 'Otro').className = 'campo-faltante';
       else sel.className = 'campo-faltante';
@@ -599,11 +675,15 @@
       recibeCotizaciones = null;
       document.getElementById('buscarCliente').value = '';
       document.getElementById('btnContinuar').disabled = true;
-      ['giro', 'bancoCaptacion', 'bancoCambios', 'bancoCredito'].forEach(function (id) {
-        document.getElementById(id).value = '';
-        document.getElementById(id + 'Otro').value = '';
-        document.getElementById(id + 'Otro').style.display = 'none';
+      bancoElegido = {};
+      CAMPOS_BANCO.forEach(function (id) {
+        document.getElementById(id + 'Texto').value = '';
+        document.getElementById(id + 'Texto').className = '';
+        document.getElementById(id + 'Lista').style.display = 'none';
       });
+      document.getElementById('giro').value = '';
+      document.getElementById('giroOtro').value = '';
+      document.getElementById('giroOtro').style.display = 'none';
       ['montoCompraDivisas', 'montoVentaDivisas', 'montoExportacion', 'montoImportacion', 'pendiente']
         .forEach(function (id) { document.getElementById(id).value = ''; });
       document.getElementById('bloqueOpcional').style.display = 'none';
