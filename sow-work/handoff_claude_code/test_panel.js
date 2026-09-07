@@ -240,30 +240,136 @@ escenario('Si truena la generación, no se guarda nada', () => {
 });
 
 // ============================================================
-// 5. AUTOPRUEBAS REPORTADAS CON HONESTIDAD
+// 5. REVISIÓN DEL SISTEMA: MOTOR + BASE DE DATOS
 // ============================================================
 
-escenario('El panel reporta el conteo real de las autopruebas', () => {
-  const p = cargarProyecto();
+/** Doble de PropertiesService con un almacén en memoria. */
+function crearPropiedadesFalsas(inicial) {
+  const almacen = Object.assign({}, inicial || {});
+  return {
+    almacen: almacen,
+    getScriptProperties: function () {
+      return {
+        getProperty: function (k) { return Object.prototype.hasOwnProperty.call(almacen, k) ? almacen[k] : null; },
+        setProperty: function (k, v) { almacen[k] = v; return this; },
+        deleteProperty: function (k) { delete almacen[k]; return this; },
+      };
+    },
+  };
+}
+
+function conMotorSano(p) {
   p.contexto.ejecutarPruebasMotorReglas = function () {};
-  p.contexto.Logger = { log: function () {}, getLog: function () { return 'OK - algo\n13 pruebas OK, 0 fallidas.\nTODO OK'; } };
+  p.contexto.Logger = { log: function () {}, getLog: function () { return '13 pruebas OK, 0 fallidas.'; } };
+}
+
+escenario('Revisión: motor sano y base ya conectada', () => {
+  const p = cargarProyecto();
+  conMotorSano(p);
+  const props = crearPropiedadesFalsas({ ID_BASE_DATOS_SOW: 'abc123' });
+  p.contexto.PropertiesService = props;
+  p.contexto.SpreadsheetApp = { openById: function () { return crearLibroFalso({}); } };
 
   const r = p.leer('correrAutopruebasDesdeSidebar')();
-  assert(r.todoBien === true, 'marca que el motor está sano');
-  assert(r.mensaje.indexOf('13') !== -1, 'dice cuántas pruebas pasaron');
+  assert(r.todoBien === true, 'reporta que todo está bien');
+  assert(r.motorOk === true && r.baseOk === true, 'marca motor y base en orden');
+  assert(r.reconectada === false, 'no reconectó porque no hacía falta');
+  assert(r.mensaje.indexOf('13 pruebas OK') !== -1, 'dice cuántas pruebas del motor pasaron');
+  assert(r.mensaje.indexOf('conectada correctamente') !== -1, 'dice que la base está conectada');
 });
 
-escenario('Si una prueba falla, el panel NO dice que todo está bien', () => {
+escenario('Revisión: si una prueba del motor falla, NO dice que todo está bien', () => {
   const p = cargarProyecto();
   p.contexto.ejecutarPruebasMotorReglas = function () {};
-  p.contexto.Logger = { log: function () {}, getLog: function () { return '11 pruebas OK, 2 fallidas.\nREVISAR'; } };
+  p.contexto.Logger = { log: function () {}, getLog: function () { return '11 pruebas OK, 2 fallidas.'; } };
+  p.contexto.PropertiesService = crearPropiedadesFalsas({ ID_BASE_DATOS_SOW: 'abc123' });
+  p.contexto.SpreadsheetApp = { openById: function () { return crearLibroFalso({}); } };
 
-  // Antes el panel mostraba "✓ Autopruebas completas" pasara lo que pasara,
-  // porque la función del motor no devuelve nada: solo escribe en el registro.
+  // Antes el panel mostraba "OK" pasara lo que pasara, porque la función del
+  // motor no devuelve nada: solo escribe en el registro.
   const r = p.leer('correrAutopruebasDesdeSidebar')();
-  assert(r.todoBien === false, 'marca que algo está mal');
-  assert(r.mensaje.indexOf('2 prueba') !== -1, 'dice cuántas fallaron');
+  assert(r.todoBien === false && r.motorOk === false, 'marca que el motor tiene un problema');
+  assert(r.mensaje.indexOf('FALLARON 2') !== -1, 'dice cuántas fallaron');
   assert(r.mensaje.toLowerCase().indexOf('no uses los resultados') !== -1, 'le dice al asesor qué hacer');
+});
+
+escenario('La base se crea sola la primera vez (no hay historial que perder)', () => {
+  const p = cargarProyecto();
+  conMotorSano(p);
+  const props = crearPropiedadesFalsas({});
+  p.contexto.PropertiesService = props;
+  let creo = false;
+  p.contexto.obtenerBaseDeDatosSegura_ = function () {
+    creo = true;
+    props.almacen.ID_BASE_DATOS_SOW = 'nueva999';
+    return crearLibroFalso({});
+  };
+
+  const r = p.leer('diagnosticarBaseDeDatos_')();
+  assert(creo === true, 'la crea');
+  assert(r.conectada === true && r.reconectada === true, 'queda conectada y avisa que reconectó');
+  assert(r.mensaje.indexOf('se creó ahora') !== -1, 'lo explica en lenguaje simple');
+});
+
+escenario('Si la base estaba en la papelera, se reconecta sola', () => {
+  const p = cargarProyecto();
+  const props = crearPropiedadesFalsas({ ID_BASE_DATOS_SOW: 'borrada123' });
+  p.contexto.PropertiesService = props;
+  p.contexto.SpreadsheetApp = { openById: function () { throw new Error('no existe'); } };
+  p.contexto.DriveApp = { getFileById: function () { return { isTrashed: function () { return true; } }; } };
+  let creo = false;
+  p.contexto.obtenerBaseDeDatosSegura_ = function () { creo = true; return crearLibroFalso({}); };
+
+  const r = p.leer('diagnosticarBaseDeDatos_')();
+  assert(creo === true, 'crea una nueva porque la anterior ya no existe');
+  assert(r.conectada === true && r.reconectada === true, 'queda conectada');
+  assert(props.almacen.ID_BASE_DATOS_SOW === undefined, 'olvida el identificador viejo antes de crear');
+});
+
+escenario('Si la base es de otra persona, NO se reconecta sola', () => {
+  const p = cargarProyecto();
+  const props = crearPropiedadesFalsas({ ID_BASE_DATOS_SOW: 'deOtroAsesor' });
+  p.contexto.PropertiesService = props;
+  p.contexto.SpreadsheetApp = { openById: function () { throw new Error('sin acceso'); } };
+  // Ni siquiera se puede ver el archivo en Drive: es de alguien más.
+  p.contexto.DriveApp = { getFileById: function () { throw new Error('sin acceso'); } };
+  let creo = false;
+  p.contexto.obtenerBaseDeDatosSegura_ = function () { creo = true; return crearLibroFalso({}); };
+
+  // Ésta es la prueba importante: crear una base nueva aquí partiría el
+  // historial en dos sin que nadie se entere.
+  const r = p.leer('diagnosticarBaseDeDatos_')();
+  assert(creo === false, 'NO crea una base nueva a espaldas de nadie');
+  assert(r.conectada === false && r.reconectada === false, 'reporta que no quedó conectada');
+  assert(props.almacen.ID_BASE_DATOS_SOW === 'deOtroAsesor', 'conserva el vínculo al archivo original');
+  assert(r.mensaje.indexOf('comparta') !== -1, 'le dice al asesor que pida acceso');
+});
+
+escenario('La revisión reporta la base caída aunque el motor esté sano', () => {
+  const p = cargarProyecto();
+  conMotorSano(p);
+  p.contexto.PropertiesService = crearPropiedadesFalsas({ ID_BASE_DATOS_SOW: 'deOtroAsesor' });
+  p.contexto.SpreadsheetApp = { openById: function () { throw new Error('sin acceso'); } };
+  p.contexto.DriveApp = { getFileById: function () { throw new Error('sin acceso'); } };
+
+  const r = p.leer('correrAutopruebasDesdeSidebar')();
+  assert(r.motorOk === true, 'el motor sigue sano');
+  assert(r.baseOk === false && r.todoBien === false, 'pero la revisión no dice que todo está bien');
+});
+
+// ============================================================
+// 6. MENSAJES DE ERROR QUE SE ENTIENDEN
+// ============================================================
+
+escenario('El error del puente del panel se traduce a algo accionable', () => {
+  const p = cargarProyecto();
+  const mensaje = p.leer('mensajeAmigableDeError_');
+  // Esto es lo que ve el asesor cuando el navegador bloquea el panel.
+  const texto = mensaje(new Error('Se produjo un error en el servidor al leer desde el almacenamiento. Código de error PERMISSION_DENIED.'), 'al guardar');
+  assert(texto.indexOf('PERMISSION_DENIED') === -1, 'no le enseña el código técnico al asesor');
+  assert(texto.indexOf('varias cuentas') !== -1, 'menciona la causa más común (varias cuentas abiertas)');
+  assert(texto.indexOf('cookies') !== -1, 'menciona la otra causa (cookies de terceros)');
+  assert(texto.indexOf('menú') !== -1, 'le ofrece el menú como plan B');
 });
 
 console.log(`\n---\nResultado: ${pasadas} pruebas OK, ${fallidas} fallidas.`);

@@ -53,9 +53,15 @@ Google Sheet (proyecto de Apps Script)
 
 **Por qué el "menú de opciones" vive dentro del panel:** el menú nativo de Sheets no se puede estilizar (chrome propio de Google — sin color, sin iconos, sin jerarquía visual). Por eso el menú del mockup se reprodujo como pantalla de inicio del panel, que sí es HTML propio. El menú de Sheets es solo la puerta de entrada.
 
-**RIESGO CONOCIDO — el puente `google.script.run`:** el panel se dibuja bien, pero sus llamadas al servidor fallan cuando el navegador bloquea cookies/almacenamiento de terceros para el iframe del panel. Ya pasó en Microsoft Edge (prevención de rastreo) y se reprodujo el 7 de sept en Chrome: `listarClientes` aparece en el registro de ejecuciones como *Fallida, 0 s, tipo Desconocida* — o sea, ni siquiera entró a la función. El motor y los PDF no tienen nada que ver: `probarPrototipo` corre completo en 9.5 s. Antes de dar el panel por bueno hay que verificar la configuración de cookies de terceros (ver COMO_PROBARLO.md).
+**PROBLEMA ABIERTO — el puente `google.script.run` (diagnosticado el 7 de sept):** el panel se dibuja bien pero sus llamadas al servidor fallan con *"error al leer desde el almacenamiento, PERMISSION_DENIED"*.
 
-Principio de diseño a mantener: **una sola fuente de verdad para la lógica de negocio.** `Sidebar_UI.gs` nunca debe reimplementar reglas — siempre llama a `generarEntregables()`. Si agregas una vía nueva de entrada (por ejemplo un trigger automático, o una integración con Salesforce), que también pase por esa misma función.
+**No es un problema de permisos del script ni de la base de datos.** La evidencia:
+
+1. **Prueba controlada.** La misma función `correrAutopruebasDesdeSidebar`, el mismo día y el mismo usuario: desde el **Editor** → *Completada* (1.845 s y 0.934 s); desde el **panel** → *Fallida, 0 s, tipo "Desconocida"*. Lo único que cambia es el canal.
+2. **La función de autopruebas no toca la base de datos** (solo lógica pura y `Logger`) y falla exactamente igual. Un permiso faltante de la base no puede romper algo que nunca la abre.
+3. **Los 4 permisos que pide el proyecto ya están concedidos** (Drive, Documents, Spreadsheets y `script.container.ui`): `probarPrototipo` crea archivos en Drive sin problema, y la revisión nueva — que sí abre la base de datos — completa en 1.8 s desde el editor.
+
+Causa real: el panel vive en un iframe aislado (`googleusercontent.com`) y el navegador le bloquea el almacenamiento que ese puente necesita. Los dos disparadores típicos son **tener varias cuentas de Google abiertas** (las URLs del proyecto son `/u/1/`) y el **bloqueo de cookies de terceros**. El menú nativo no usa ese puente, por eso siempre funciona — y por eso sirve como plan B y como la única vía para aceptar permisos nuevos.
 
 ## 3. Archivos incluidos en este paquete
 

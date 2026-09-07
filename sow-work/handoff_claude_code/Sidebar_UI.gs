@@ -55,7 +55,7 @@ function onOpen() {
     .addItem('Abrir panel de diagnóstico', 'mostrarPanelDiagnostico')
     .addSeparator()
     .addItem('Abrir la base de datos de clientes', 'abrirBaseDeDatosDeClientes')
-    .addItem('Reconectar la base de datos (solo si algo falla)', 'reconectarBaseDeDatosDeClientes')
+    .addItem('Empezar una base de datos nueva (último recurso)', 'reconectarBaseDeDatosDeClientes')
     .addSeparator()
     .addItem('Ejecutar autopruebas del motor', 'ejecutarPruebasMotorReglasConAlerta')
     .addToUi();
@@ -66,42 +66,152 @@ function mostrarPanelDiagnostico() {
   SpreadsheetApp.getUi().showSidebar(html);
 }
 
-/** Autoprueba desde el MENÚ nativo (muestra un alert de Sheets). */
+/**
+ * La misma revisión, desde el MENÚ nativo. Sirve como plan B cuando el panel
+ * no responde, y es la forma de aceptar permisos nuevos: los cuadros de
+ * permiso de Google solo se pueden mostrar desde el menú o el editor, nunca
+ * desde dentro del panel.
+ */
 function ejecutarPruebasMotorReglasConAlerta() {
   const ui = SpreadsheetApp.getUi();
   const resumen = correrAutopruebasDesdeSidebar();
-  ui.alert(TITULO_DIALOGO, resumen.mensaje, ui.ButtonSet.OK);
+  const titulo = resumen.todoBien ? 'Todo en orden' : 'Revisar esto';
+  ui.alert(TITULO_DIALOGO, titulo + '\n\n' + resumen.mensaje, ui.ButtonSet.OK);
 }
 
 /**
- * Misma autoprueba, pensada para llamarse DESDE el panel.
+ * Revisión completa del sistema, que es lo que corre "Ejecutar autopruebas
+ * del motor" (desde el panel y desde el menú).
  *
- * ejecutarPruebasMotorReglas() (en prototipo_entregables_sow.gs) escribe su
- * resultado en el registro pero no lo devuelve, así que antes el panel decía
- * "✓ completas" aunque una prueba hubiera fallado. Aquí se lee el registro de
- * esta misma ejecución para reportar el conteo real.
+ * Hace dos cosas, no una:
+ *   1. Corre las pruebas del motor de reglas.
+ *   2. Revisa si la base de datos está conectada y, cuando es seguro,
+ *      la reconecta sola.
+ *
+ * ejecutarPruebasMotorReglas() escribe su resultado en el registro pero no lo
+ * devuelve, así que antes el panel decía "OK" aunque una prueba hubiera
+ * fallado. Aquí se lee el registro de esta misma ejecución para reportar el
+ * conteo real.
  */
 function correrAutopruebasDesdeSidebar() {
+  // --- 1. Motor de reglas ---
   ejecutarPruebasMotorReglas();
 
   const registro = Logger.getLog() || '';
   const conteo = registro.match(/(\d+)\s+pruebas OK,\s+(\d+)\s+fallidas/);
 
-  if (!conteo) {
-    return {
-      todoBien: true,
-      mensaje: 'Autopruebas ejecutadas. Revisa Ver → Registro de ejecución en el editor de Apps Script para el detalle.',
-    };
+  let motorOk = true;
+  let motorMensaje = 'Motor: pruebas ejecutadas (revisa el Registro de ejecución para el detalle).';
+  if (conteo) {
+    const pasadas = parseInt(conteo[1], 10);
+    const fallidas = parseInt(conteo[2], 10);
+    motorOk = fallidas === 0;
+    motorMensaje = motorOk
+      ? 'Motor de reglas: ' + pasadas + ' pruebas OK, ninguna falló.'
+      : 'Motor de reglas: FALLARON ' + fallidas + ' de ' + (pasadas + fallidas) +
+        ' pruebas. No uses los resultados hasta revisarlo.';
   }
 
-  const pasadas = parseInt(conteo[1], 10);
-  const fallidas = parseInt(conteo[2], 10);
+  // --- 2. Base de datos (con reconexión automática si es seguro) ---
+  const base = diagnosticarBaseDeDatos_();
+
   return {
-    todoBien: fallidas === 0,
-    mensaje: fallidas === 0
-      ? 'Autopruebas completas: ' + pasadas + ' pruebas OK, ninguna falló. El motor está sano.'
-      : 'Atención: ' + fallidas + ' prueba(s) fallaron de ' + (pasadas + fallidas) +
-        '. No uses los resultados hasta revisarlo — avísale a quien da soporte.',
+    todoBien: motorOk && base.conectada,
+    motorOk: motorOk,
+    baseOk: base.conectada,
+    reconectada: base.reconectada,
+    mensaje: motorMensaje + '\n' + 'Base de datos: ' + base.mensaje,
+  };
+}
+
+/**
+ * Revisa si la base de datos está conectada y la reconecta sola cuando puede
+ * hacerlo sin riesgo. Nunca truena: siempre devuelve un resumen.
+ *
+ * La regla importante: crear una base nueva solo es seguro cuando NO hay
+ * historial que perder. Si el archivo existe pero no lo podemos abrir (lo más
+ * probable: lo creó otra persona y no lo ha compartido), crear otro partiría
+ * el historial en dos sin que nadie se entere. En ese caso NO se reconecta
+ * sola: se explica qué pasa y se deja la decisión a una persona.
+ */
+function diagnosticarBaseDeDatos_() {
+  const propiedades = PropertiesService.getScriptProperties();
+  const id = propiedades.getProperty(PROPIEDAD_ID_BASE_DATOS_SOW);
+
+  // Caso 1: nunca se ha creado. Crearla es seguro, no hay nada que perder.
+  if (!id) {
+    try {
+      libroBaseDeDatosEnMemoria_ = null;
+      obtenerBaseDeDatosSegura_();
+      return {
+        conectada: true,
+        reconectada: true,
+        mensaje: 'no existía y se creó ahora. Ya quedó conectada.',
+      };
+    } catch (e) {
+      return {
+        conectada: false,
+        reconectada: false,
+        mensaje: 'no se pudo crear. ' + mensajeAmigableDeError_(e, 'al crearla'),
+      };
+    }
+  }
+
+  // Caso 2: hay identificador guardado. Se intenta abrir.
+  try {
+    const libro = SpreadsheetApp.openById(id);
+    asegurarEstructura_(libro);
+    libroBaseDeDatosEnMemoria_ = libro;
+    return { conectada: true, reconectada: false, mensaje: 'conectada correctamente.' };
+  } catch (e) {
+    return reconectarSiEsSeguro_(propiedades, id);
+  }
+}
+
+/**
+ * El identificador guardado no se pudo abrir. Antes de crear otra base hay que
+ * saber por qué, porque hacerlo a ciegas destruye el historial de alguien.
+ */
+function reconectarSiEsSeguro_(propiedades, id) {
+  let sePuedeVerElArchivo = true;
+  let estaEnLaPapelera = false;
+  try {
+    estaEnLaPapelera = DriveApp.getFileById(id).isTrashed();
+  } catch (e) {
+    sePuedeVerElArchivo = false;
+  }
+
+  // El archivo se borró: no hay historial que rescatar, se reconecta sola.
+  if (sePuedeVerElArchivo && estaEnLaPapelera) {
+    try {
+      propiedades.deleteProperty(PROPIEDAD_ID_BASE_DATOS_SOW);
+      libroBaseDeDatosEnMemoria_ = null;
+      obtenerBaseDeDatosSegura_();
+      return {
+        conectada: true,
+        reconectada: true,
+        mensaje: 'la anterior estaba en la papelera, así que se creó una nueva. Ya quedó conectada.',
+      };
+    } catch (e) {
+      return {
+        conectada: false,
+        reconectada: false,
+        mensaje: 'la anterior estaba en la papelera y no se pudo crear una nueva. ' +
+          mensajeAmigableDeError_(e, 'al crearla'),
+      };
+    }
+  }
+
+  // No se puede ni ver el archivo: casi seguro es de otra persona y no lo ha
+  // compartido. Crear otra base aquí partiría el historial en dos.
+  return {
+    conectada: false,
+    reconectada: false,
+    mensaje: 'existe pero no la puedes abrir. Lo más probable es que la haya creado otra ' +
+      'persona y todavía no la comparta contigo. Pídele que te comparta el archivo. ' +
+      'Solo si de plano hay que empezar de cero, usa el menú → "Empezar una base de datos ' +
+      'nueva (último recurso)", pero eso deja de leer el historial anterior. ' +
+      'Identificador del archivo: ' + id,
   };
 }
 
@@ -438,6 +548,19 @@ function mensajeAmigableDeError_(error, momento) {
   const detalle = (error && error.message) ? error.message : String(error);
 
   if (detalle.indexOf('base de datos de clientes') !== -1) return detalle;
+
+  // El fallo mas comun del panel no es de permisos del script sino del puente
+  // entre el panel y el servidor, que el navegador bloquea. Se explica aparte
+  // porque "PERMISSION_DENIED" no le dice nada a un asesor.
+  if (/PERMISSION_DENIED|almacenamiento|storage/i.test(detalle)) {
+    return 'El panel no se pudo comunicar con Google.\n\n' +
+      'Casi siempre es una de estas dos cosas:\n' +
+      '1) Tienes varias cuentas de Google abiertas en el navegador. Abre la hoja en una ' +
+      'ventana donde solo esté tu cuenta de trabajo (o en una ventana de incógnito).\n' +
+      '2) El navegador está bloqueando las cookies de terceros. Revisa ' +
+      'chrome://settings/cookies.\n\n' +
+      'Mientras tanto puedes usar el menú "' + TITULO_DIALOGO + '", que no depende del panel.';
+  }
 
   let explicacion = 'Algo falló ' + momento + '.';
   if (/permis|permiss|access|autoriza/i.test(detalle)) {

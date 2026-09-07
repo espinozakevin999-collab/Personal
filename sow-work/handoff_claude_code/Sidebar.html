@@ -271,6 +271,26 @@
     var tieneCredito = null;
     var recibeCotizaciones = null;
 
+    /**
+     * El fallo mas comun del panel no es del script: es el puente entre el
+     * panel y el servidor, que el navegador bloquea. "PERMISSION_DENIED" no le
+     * dice nada a un asesor, asi que aqui se traduce a algo accionable.
+     */
+    function explicarError(err) {
+      var detalle = (err && err.message) ? err.message : String(err);
+      if (/PERMISSION_DENIED|almacenamiento|storage/i.test(detalle)) {
+        return '<b>El panel no se pudo comunicar con Google.</b>' +
+          '<br><br>Casi siempre es una de estas dos:' +
+          '<br>1) Tienes varias cuentas de Google abiertas. Abre la hoja en una ventana ' +
+          'donde solo esté tu cuenta de trabajo (o en incógnito).' +
+          '<br>2) El navegador bloquea las cookies de terceros ' +
+          '(revisa <code>chrome://settings/cookies</code>).' +
+          '<br><br>Mientras tanto puedes usar el menú <b>Diagnóstico Share of Wallet</b> ' +
+          'de arriba, que no depende del panel.';
+      }
+      return escapar(detalle);
+    }
+
     function escapar(texto) {
       return String(texto === null || texto === undefined ? '' : texto)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -362,7 +382,7 @@
         })
         .withFailureHandler(function (err) {
           document.getElementById('contenidoHistorial').innerHTML =
-            '<div class="aviso-error">No se pudo leer el historial. ' + escapar(err.message) + '</div>';
+            '<div class="aviso-error">' + explicarError(err) + '</div>';
         })
         .listarClientes();
     }
@@ -371,13 +391,18 @@
       document.getElementById('resultadoAutopruebas').innerHTML = '<div class="menu-resultado">Ejecutando autopruebas…</div>';
       google.script.run
         .withSuccessHandler(function (r) {
+          var clase = r.todoBien ? 'menu-resultado' : 'aviso-error';
           var icono = r.todoBien ? '✓ ' : '⚠ ';
+          // El mensaje trae dos renglones: motor y base de datos.
+          var cuerpo = escapar(r.mensaje).replace(/\n/g, '<br>');
           document.getElementById('resultadoAutopruebas').innerHTML =
-            '<div class="menu-resultado">' + icono + escapar(r.mensaje) + '</div>';
+            '<div class="' + clase + '">' + icono + cuerpo +
+            (r.reconectada ? '<br><br>La base de datos se reconectó sola durante esta revisión.' : '') +
+            '</div>';
         })
         .withFailureHandler(function (err) {
           document.getElementById('resultadoAutopruebas').innerHTML =
-            '<div class="aviso-error">Ocurrió un error al correr las autopruebas: ' + escapar(err.message) + '</div>';
+            '<div class="aviso-error">' + explicarError(err) + '</div>';
         })
         .correrAutopruebasDesdeSidebar();
     }
@@ -532,7 +557,7 @@
         .withSuccessHandler(mostrarResultado)
         .withFailureHandler(function (err) {
           document.getElementById('resultadoContenido').innerHTML =
-            '<div class="aviso-error"><b>No se pudo generar el diagnóstico.</b><br>' + escapar(err.message) + '</div>';
+            '<div class="aviso-error">' + explicarError(err) + '</div>';
         })
         .guardarRespuestaYGenerar(recolectarRespuesta());
     }
