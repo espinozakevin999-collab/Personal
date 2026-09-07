@@ -10,9 +10,11 @@ Organizados por quién puede resolverlos. Lo que puede avanzar Claude Code de fo
 - [ ] `[bloqueado — decisión de negocio]` **Productos nuevos en `TABLA_REGLAS`** (Inversiones, Coberturas, BASEinet). No se agregan hasta que Gustavo/Julián definan sus preguntas de descubrimiento. Hay una prueba automática que falla si alguien los agrega antes (ver `test_motor_reglas.js`).
 - [ ] `[bloqueado — decisión de negocio]` **Quiénes van a usar la herramienta.** Si va a ser más de un asesor, hay que compartir el archivo de base de datos con todos (menú → "Abrir la base de datos de clientes"). Ver la nota de propiedad del archivo más abajo.
 
+- [ ] `[BLOQUEANTE — 1 minuto de Kevin]` **Confirmar a mano que el panel responde.** El 7 de sept se instaló y se comprobó que se dibuja bien en Sheets real, pero la primera llamada al servidor (`listarClientes`) salió *Fallida, 0 s, tipo Desconocida* en el registro de ejecuciones. Sospecha principal: el navegador bloquea cookies/almacenamiento de terceros para el iframe del panel (mismo patrón que el fallo original en Edge). Qué hacer: abrir la hoja en una ventana normal de Chrome (sin automatización), menú → Abrir panel de diagnóstico → clic en “Ejecutar autopruebas del motor”. Si sale el mensaje con el conteo, el panel es viable; si no sale nada, revisar cookies de terceros (ver COMO_PROBARLO.md). **No mandar el ZIP a Nico/Gustavo/Julián hasta que esto pase.**
+
 ## Mejoras técnicas de libre iniciativa
 
-- [ ] `[libre]` Probar el flujo completo dentro del Google Sheet real. Las pruebas locales (`node test_motor_reglas.js` y `node test_flujo_dialogos.js`) ya cubren la lógica del motor y del flujo de preguntas, pero **no** se ha verificado en vivo: que los cuadros de diálogo se vean bien, que los PDF se generen desde este flujo, y que el archivo de base de datos se cree correctamente la primera vez.
+- [ ] `[libre]` Probar el resto del flujo dentro del Google Sheet real. Ya está verificado en vivo que el panel se dibuja bien y que el motor genera los PDF (`probarPrototipo` completa en 9.5 s). Falta ver, desde el panel: que se generen los entregables de punta a punta, y que el archivo de base de datos se cree y se llene bien la primera vez. Depende del bloqueante de arriba.
 - [ ] `[libre]` Migrar `TABLA_REGLAS` (hoy dentro de `prototipo_entregables_sow.gs`) a una hoja de Google Sheets tipo "Reglas" (producto | condición | umbral | texto de oportunidad | pregunta de guion) para que Gustavo/Julián puedan ajustar criterios sin pedir un despliegue de código. Ojo: al hacerlo, mantener la prueba de gobernanza que hoy vigila qué productos existen.
 - [ ] `[libre]` Restringir el menú a una lista de correos de asesores autorizados usando `Session.getActiveUser().getEmail()` (hoy lo puede usar cualquiera con acceso de edición a la hoja).
 - [ ] `[libre]` Portar la paleta oficial de BASE (Amarillo #F5A800, Negro #000000, Gris #707272) también a los PDF generados por `generarPDFAsesor()` / `generarGuionConversacion()` — hoy el `.gs` ya aplica color a los textos, pero falta revisar cómo se ve impreso.
@@ -30,7 +32,7 @@ Organizados por quién puede resolverlos. Lo que puede avanzar Claude Code de fo
 ## Reglas de oro al modificar el código
 
 1. **Antes y después de tocar `prototipo_entregables_sow.gs`:** correr `node test_motor_reglas.js` (o `ejecutarPruebasMotorReglas()` dentro de Apps Script). Si agregas una regla o una rama de prioridad nueva, agrega también su prueba.
-2. **Antes y después de tocar `Sidebar_UI.gs`:** correr `node test_flujo_dialogos.js`.
+2. **Antes y después de tocar `Sidebar_UI.gs` o `Sidebar.html`:** correr `node test_panel.js`, y revisar la apariencia con `vista_previa_panel/`.
 3. **No duplicar lógica de negocio.** La interfaz siempre llama a `generarEntregables()`; nunca se reimplementa `evaluarReglas()` ni `clasificarPrioridad()` en otro archivo.
 4. **Datos ficticios siempre.** Todo cliente que aparezca en el sistema es inventado o está marcado como tal.
 

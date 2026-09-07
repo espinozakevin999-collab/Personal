@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    :root {
+      --amarillo: #F5A800;
+      --amarillo-suave: #FCE9BF;
+      --negro: #000000;
+      --gris: #707272;
+      --gris-borde: #D1D1D2;
+      --gris-fondo: #EFEFEF;
+      --rojo: #B3261E;
+      --rojo-suave: #FCEEEC;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 18px 16px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: var(--negro); font-size: 13px;
+    }
+    .eyebrow {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--amarillo); margin-bottom: 4px;
+    }
+    h1 { font-size: 17px; margin: 0 0 4px 0; }
+    .subtitle { color: var(--gris); font-size: 12px; margin-bottom: 14px; }
+    .dots { display: flex; gap: 5px; margin-bottom: 18px; }
+    .dot { height: 4px; flex: 1; border-radius: 2px; background: var(--gris-fondo); }
+    .dot.activo { background: var(--amarillo); }
+    label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; margin-top: 12px; }
+    input[type=text], select {
+      width: 100%; padding: 8px 9px; border: 1px solid var(--gris-borde); border-radius: 5px;
+      font-size: 13px; font-family: inherit; color: var(--negro); background: #fff;
+    }
+    .toggle-row { display: flex; gap: 8px; }
+    .toggle-btn {
+      flex: 1; padding: 8px; border-radius: 5px; border: 1px solid var(--gris-borde);
+      background: #fff; color: var(--gris); font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .toggle-btn.activo { border-color: var(--amarillo); background: var(--amarillo-suave); color: var(--negro); }
+    .cliente-item {
+      text-align: left; width: 100%; padding: 9px 10px; margin-bottom: 6px; border-radius: 5px;
+      border: 1px solid var(--gris-borde); background: #fff; font-size: 13px; cursor: pointer;
+    }
+    .cliente-item.activo { border-color: var(--amarillo); background: var(--amarillo-suave); }
+    .cliente-item .memoria { display: block; font-size: 11px; color: var(--gris); margin-top: 3px; line-height: 1.35; }
+    .cliente-item.nuevo { border-style: dashed; }
+    .btn-primario {
+      width: 100%; padding: 10px; border: none; border-radius: 6px; background: var(--amarillo);
+      color: var(--negro); font-weight: 700; font-size: 13px; cursor: pointer; margin-top: 18px;
+    }
+    .btn-primario:disabled { background: var(--gris-fondo); color: #AEA9A0; cursor: not-allowed; }
+    .btn-secundario {
+      width: 100%; padding: 10px; border: 1px solid var(--gris-borde); border-radius: 6px; background: #fff;
+      color: var(--negro); font-weight: 600; font-size: 13px; cursor: pointer; margin-top: 8px;
+    }
+    .link-volver {
+      display: inline-block; font-size: 12px; color: var(--gris); font-weight: 600;
+      cursor: pointer; margin-bottom: 10px; text-decoration: none;
+    }
+    .link-volver:hover { color: var(--negro); }
+    .prioridad-card { border-radius: 7px; padding: 12px; margin-bottom: 14px; border: 1px solid var(--gris-borde); background: var(--gris-fondo); }
+    .prioridad-card.p1 { background: var(--amarillo-suave); border-color: var(--amarillo); }
+    .prioridad-titulo { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+    .prioridad-motivo { font-size: 12px; color: #3B3B3B; line-height: 1.45; }
+    .oportunidad { border: 1px solid var(--gris-fondo); border-left: 3px solid var(--amarillo); border-radius: 4px; padding: 9px 11px; margin-bottom: 8px; }
+    .oportunidad .producto { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+    .oportunidad .detalle { font-size: 12px; color: var(--gris); line-height: 1.4; }
+    .seccion-label { font-size: 11px; font-weight: 700; color: var(--gris); text-transform: uppercase; letter-spacing: 0.04em; margin: 14px 0 8px 0; }
+    .link-generado { font-size: 12px; margin-bottom: 6px; }
+    .link-generado a { color: var(--negro); }
+    .nota { font-size: 11px; color: #AEA9A0; font-style: italic; margin-top: 8px; }
+    .cargando { font-size: 12px; color: var(--gris); }
+
+    /* Aviso de campos faltantes: antes se podia generar un diagnostico con el
+       formulario vacio y el resultado parecia valido ("sin brechas"). */
+    .aviso-error {
+      background: var(--rojo-suave); border: 1px solid var(--rojo); border-radius: 6px;
+      padding: 9px 11px; margin-top: 12px; font-size: 12px; color: var(--rojo); line-height: 1.45;
+    }
+    .aviso-error ul { margin: 6px 0 0 16px; padding: 0; }
+    .campo-faltante { border-color: var(--rojo) !important; }
+
+    /* Bloque plegable de datos opcionales (montos y pendiente). */
+    .plegable {
+      width: 100%; text-align: left; margin-top: 16px; padding: 9px 11px; cursor: pointer;
+      background: var(--gris-fondo); border: none; border-radius: 6px;
+      font-family: inherit; font-size: 12px; font-weight: 600; color: var(--negro);
+    }
+    .plegable-sub { display: block; font-weight: 400; font-size: 11px; color: var(--gris); margin-top: 2px; }
+
+    /* ---- Paso 0: pantalla de inicio con "opciones", mismo concepto      */
+    /* visual que el mockup de Claude Design (Menu.dc.html) — esto SÍ se  */
+    /* puede vestir igual porque es HTML propio, a diferencia del menú    */
+    /* nativo de Sheets, que no acepta estilos.                           */
+    .menu-header {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--gris); background: var(--gris-fondo); padding: 10px 12px; border-radius: 6px 6px 0 0;
+    }
+    .menu-lista { border: 1px solid var(--gris-borde); border-top: none; border-radius: 0 0 8px 8px; overflow: hidden; margin-bottom: 4px; }
+    .menu-opcion {
+      display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left;
+      padding: 13px 14px; border: none; border-top: 1px solid var(--gris-fondo);
+      background: #fff; cursor: pointer; font-family: inherit;
+    }
+    .menu-lista .menu-opcion:first-child { border-top: none; }
+    .menu-opcion.principal { background: var(--amarillo-suave); }
+    .menu-opcion:hover { background: var(--gris-fondo); }
+    .menu-opcion.principal:hover { background: var(--amarillo-suave); filter: brightness(0.97); }
+    .menu-opcion svg { flex-shrink: 0; margin-top: 1px; }
+    .menu-opcion-titulo { font-size: 13px; font-weight: 600; color: var(--negro); }
+    .menu-opcion-sub { font-size: 11.5px; color: var(--gris); margin-top: 2px; line-height: 1.35; }
+    .menu-resultado { font-size: 11.5px; margin-top: 10px; padding: 9px 11px; border-radius: 5px; background: var(--gris-fondo); color: #3B3B3B; }
+
+    .historial-item { border: 1px solid var(--gris-borde); border-radius: 6px; padding: 9px 11px; margin-bottom: 7px; }
+    .historial-nombre { font-size: 12.5px; font-weight: 600; }
+    .historial-dato { font-size: 11.5px; color: var(--gris); margin-top: 2px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="eyebrow">Banco BASE · Orquestación comercial</div>
+  <h1>Diagnóstico Share of Wallet</h1>
+  <div class="subtitle" id="clienteActual"></div>
+  <div class="dots" id="barraDots" style="display:none;">
+    <div class="dot" id="dot1"></div>
+    <div class="dot" id="dot2"></div>
+    <div class="dot" id="dot3"></div>
+  </div>
+
+  <!-- Paso 0: se abre el panel → se abren las opciones -->
+  <div id="paso0">
+    <div class="menu-header">Diagnóstico Share of Wallet</div>
+    <div class="menu-lista">
+      <button type="button" class="menu-opcion principal" onclick="irAPaso1()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        <div>
+          <div class="menu-opcion-titulo">Abrir panel de diagnóstico</div>
+          <div class="menu-opcion-sub">Captura una visita y genera los entregables para el asesor</div>
+        </div>
+      </button>
+      <button type="button" class="menu-opcion" onclick="verHistorial()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#707272" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"></path></svg>
+        <div>
+          <div class="menu-opcion-titulo">Ver historial de diagnósticos</div>
+          <div class="menu-opcion-sub">Qué prioridad quedó y qué pendiente dejaste en cada cliente</div>
+        </div>
+      </button>
+      <button type="button" class="menu-opcion" onclick="correrAutopruebas()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#707272" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        <div>
+          <div class="menu-opcion-titulo">Ejecutar autopruebas del motor</div>
+          <div class="menu-opcion-sub">Verifica que las reglas y la prioridad sigan funcionando bien</div>
+        </div>
+      </button>
+    </div>
+    <div id="resultadoAutopruebas"></div>
+  </div>
+
+  <!-- Paso 1: cliente -->
+  <div id="paso1" style="display:none;">
+    <a class="link-volver" onclick="irAPaso0()">‹ Menú</a>
+    <label>Buscar cliente</label>
+    <input type="text" id="buscarCliente" placeholder="Escribe el nombre del cliente…" oninput="filtrarClientes()">
+    <div id="listaClientes" style="margin-top: 8px;"></div>
+    <div class="nota">Datos de ejemplo — clientes ficticios.</div>
+    <button class="btn-primario" id="btnContinuar" disabled onclick="irAPaso2()">Continuar</button>
+  </div>
+
+  <!-- Paso 2: preguntas -->
+  <div id="paso2" style="display:none;">
+    <a class="link-volver" onclick="irAPaso1()">‹ Cambiar de cliente</a>
+    <div class="seccion-label">Modelo de negocio y Share of Wallet</div>
+
+    <label>Giro del negocio</label>
+    <select id="giro" onchange="alternarOtro('giro')">
+      <option value="">Selecciona…</option>
+      <option>Comercializadora</option>
+      <option>Manufactura</option>
+      <option>Comercio exterior</option>
+      <option>Servicios</option>
+      <option value="__OTRO__">Otro (especifica)</option>
+    </select>
+    <input type="text" id="giroOtro" style="display:none; margin-top:6px;" placeholder="Escribe el giro">
+
+    <label>¿Con qué banco tiene su captación principal?</label>
+    <select id="bancoCaptacion" onchange="alternarOtro('bancoCaptacion')"></select>
+    <input type="text" id="bancoCaptacionOtro" style="display:none; margin-top:6px;" placeholder="Escribe el nombre del banco">
+
+    <label>¿Con qué banco hace sus operaciones de cambios?</label>
+    <select id="bancoCambios" onchange="alternarOtro('bancoCambios')"></select>
+    <input type="text" id="bancoCambiosOtro" style="display:none; margin-top:6px;" placeholder="Escribe el nombre del banco">
+
+    <label>¿Tiene crédito vigente con otro banco?</label>
+    <div class="toggle-row">
+      <button type="button" class="toggle-btn" id="creditoSi" onclick="setCredito(true)">Sí</button>
+      <button type="button" class="toggle-btn" id="creditoNo" onclick="setCredito(false)">No</button>
+    </div>
+
+    <div id="bancoCreditoWrap" style="display:none;">
+      <label>¿Con qué banco tiene ese crédito?</label>
+      <select id="bancoCredito" onchange="alternarOtro('bancoCredito')"></select>
+      <input type="text" id="bancoCreditoOtro" style="display:none; margin-top:6px;" placeholder="Escribe el nombre del banco">
+    </div>
+
+    <label>¿Recibe cotizaciones o reportes de mercado de otro banco?</label>
+    <div class="toggle-row">
+      <button type="button" class="toggle-btn" id="cotizaSi" onclick="setCotiza(true)">Sí</button>
+      <button type="button" class="toggle-btn" id="cotizaNo" onclick="setCotiza(false)">No</button>
+    </div>
+
+    <button type="button" class="plegable" onclick="alternarOpcionales()">
+      + Datos adicionales (opcional)
+      <span class="plegable-sub">Montos aproximados y el pendiente para la próxima visita</span>
+    </button>
+    <div id="bloqueOpcional" style="display:none;">
+      <label>¿Cuánto COMPRA de divisas al mes?</label>
+      <input type="text" id="montoCompraDivisas" placeholder="Ejemplo: USD 90,000">
+      <label>¿Cuánto VENDE de divisas al mes?</label>
+      <input type="text" id="montoVentaDivisas" placeholder="Ejemplo: USD 60,000">
+      <label>¿Cuánto EXPORTA al mes?</label>
+      <input type="text" id="montoExportacion" placeholder="Ejemplo: USD 80,000">
+      <label>¿Cuánto IMPORTA al mes?</label>
+      <input type="text" id="montoImportacion" placeholder="Ejemplo: USD 120,000">
+      <label>¿Quedó algo pendiente para la próxima visita?</label>
+      <input type="text" id="pendiente" placeholder="Lo verás la próxima vez que busques a este cliente">
+    </div>
+
+    <div id="avisoCampos"></div>
+
+    <button class="btn-primario" onclick="generar()">Ver resultado y generar entregables</button>
+    <button class="btn-secundario" onclick="irAPaso1()">Atrás</button>
+  </div>
+
+  <!-- Paso 3: resultado -->
+  <div id="paso3" style="display:none;">
+    <div id="resultadoContenido"></div>
+    <button class="btn-secundario" onclick="reiniciar()">Nuevo diagnóstico</button>
+  </div>
+
+  <!-- Historial -->
+  <div id="pasoHistorial" style="display:none;">
+    <a class="link-volver" onclick="irAPaso0()">‹ Menú</a>
+    <div class="seccion-label">Historial de diagnósticos</div>
+    <div id="contenidoHistorial"><div class="cargando">Cargando…</div></div>
+  </div>
+
+  <script>
+    // El motor de reglas compara contra el texto exacto 'BASE'. La lista se
+    // arma aquí para no repetirla en cada pregunta y para que el valor que se
+    // manda al servidor sea siempre el correcto.
+    var BANCOS = [
+      { valor: 'BASE', texto: 'Banco BASE' },
+      { valor: 'BBVA', texto: 'BBVA' },
+      { valor: 'Santander', texto: 'Santander' },
+      { valor: 'Banorte', texto: 'Banorte' },
+      { valor: 'HSBC', texto: 'HSBC' },
+      { valor: 'Citibanamex', texto: 'Citibanamex' },
+      { valor: 'Scotiabank', texto: 'Scotiabank' },
+      { valor: 'Inbursa', texto: 'Inbursa' },
+      { valor: 'Banco Azteca', texto: 'Banco Azteca' },
+      { valor: 'BanBajío', texto: 'BanBajío' },
+      { valor: 'Afirme', texto: 'Afirme' },
+      { valor: 'Multiva', texto: 'Multiva' }
+    ];
+    var VALOR_OTRO = '__OTRO__';
+
+    var clientes = [];
+    var clienteSeleccionado = null;
+    var tieneCredito = null;
+    var recibeCotizaciones = null;
+
+    function escapar(texto) {
+      return String(texto === null || texto === undefined ? '' : texto)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function llenarSelectoresDeBanco() {
+      ['bancoCaptacion', 'bancoCambios', 'bancoCredito'].forEach(function (id) {
+        var sel = document.getElementById(id);
+        var html = '<option value="">Selecciona…</option>';
+        BANCOS.forEach(function (b) {
+          // El banco del crédito se pregunta como "con OTRO banco", así que
+          // ofrecer BASE ahí solo genera respuestas contradictorias.
+          if (id === 'bancoCredito' && b.valor === 'BASE') return;
+          html += '<option value="' + escapar(b.valor) + '">' + escapar(b.texto) + '</option>';
+        });
+        html += '<option value="' + VALOR_OTRO + '">Otro (especifica)</option>';
+        sel.innerHTML = html;
+      });
+    }
+    llenarSelectoresDeBanco();
+
+    // Si eliges "Otro (especifica)" se abre un cuadro para escribir el nombre.
+    // Antes se guardaba la palabra "Otro" tal cual y el PDF acababa diciendo
+    // "hace sus operaciones de cambios con Otro".
+    function alternarOtro(idCampo) {
+      var sel = document.getElementById(idCampo);
+      var texto = document.getElementById(idCampo + 'Otro');
+      texto.style.display = (sel.value === VALOR_OTRO) ? 'block' : 'none';
+      if (sel.value !== VALOR_OTRO) texto.value = '';
+    }
+
+    function valorDe(idCampo) {
+      var sel = document.getElementById(idCampo);
+      if (sel.value === VALOR_OTRO) return document.getElementById(idCampo + 'Otro').value.trim();
+      return sel.value;
+    }
+
+    function alternarOpcionales() {
+      var b = document.getElementById('bloqueOpcional');
+      b.style.display = (b.style.display === 'none') ? 'block' : 'none';
+    }
+
+    function mostrarSolo(idsVisibles) {
+      ['paso0', 'paso1', 'paso2', 'paso3', 'pasoHistorial'].forEach(function (id) {
+        document.getElementById(id).style.display = idsVisibles.indexOf(id) !== -1 ? 'block' : 'none';
+      });
+    }
+
+    function actualizarDots(paso) {
+      if (paso === 0) {
+        document.getElementById('barraDots').style.display = 'none';
+        return;
+      }
+      document.getElementById('barraDots').style.display = 'flex';
+      for (var i = 1; i <= 3; i++) {
+        document.getElementById('dot' + i).className = 'dot' + (i <= paso ? ' activo' : '');
+      }
+    }
+
+    // ---- Paso 0: menú de opciones (lo primero que se ve al abrir el panel) ----
+    function irAPaso0() {
+      mostrarSolo(['paso0']);
+      document.getElementById('clienteActual').textContent = '';
+      actualizarDots(0);
+    }
+
+    function verHistorial() {
+      mostrarSolo(['pasoHistorial']);
+      actualizarDots(0);
+      document.getElementById('contenidoHistorial').innerHTML = '<div class="cargando">Cargando…</div>';
+      google.script.run
+        .withSuccessHandler(function (lista) {
+          if (!lista || lista.length === 0) {
+            document.getElementById('contenidoHistorial').innerHTML =
+              '<div class="menu-resultado">Todavía no hay diagnósticos guardados. En cuanto generes el primero, aquí vas a ver qué prioridad quedó y qué dejaste pendiente.</div>';
+            return;
+          }
+          var html = '';
+          lista.forEach(function (c) {
+            html += '<div class="historial-item">';
+            html += '<div class="historial-nombre">' + escapar(c.nombre) + '</div>';
+            if (c.ultimaVisita) html += '<div class="historial-dato">Última visita: ' + escapar(c.ultimaVisita) + '</div>';
+            if (c.etiqueta) html += '<div class="historial-dato">' + escapar(c.etiqueta) + '</div>';
+            html += '<div class="historial-dato">Pendiente: ' + escapar(c.pendiente ? c.pendiente : 'ninguno registrado') + '</div>';
+            html += '</div>';
+          });
+          document.getElementById('contenidoHistorial').innerHTML = html;
+        })
+        .withFailureHandler(function (err) {
+          document.getElementById('contenidoHistorial').innerHTML =
+            '<div class="aviso-error">No se pudo leer el historial. ' + escapar(err.message) + '</div>';
+        })
+        .listarClientes();
+    }
+
+    function correrAutopruebas() {
+      document.getElementById('resultadoAutopruebas').innerHTML = '<div class="menu-resultado">Ejecutando autopruebas…</div>';
+      google.script.run
+        .withSuccessHandler(function (r) {
+          var icono = r.todoBien ? '✓ ' : '⚠ ';
+          document.getElementById('resultadoAutopruebas').innerHTML =
+            '<div class="menu-resultado">' + icono + escapar(r.mensaje) + '</div>';
+        })
+        .withFailureHandler(function (err) {
+          document.getElementById('resultadoAutopruebas').innerHTML =
+            '<div class="aviso-error">Ocurrió un error al correr las autopruebas: ' + escapar(err.message) + '</div>';
+        })
+        .correrAutopruebasDesdeSidebar();
+    }
+
+    // ---- Paso 1: cliente ----
+    function cargarClientes() {
+      google.script.run
+        .withSuccessHandler(function (lista) { clientes = lista || []; filtrarClientes(); })
+        .withFailureHandler(function () { clientes = []; filtrarClientes(); })
+        .listarClientes();
+    }
+    cargarClientes();
+
+    function normalizar(texto) {
+      return String(texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    function seleccionarCliente(nombre) {
+      clienteSeleccionado = nombre;
+      document.getElementById('buscarCliente').value = nombre;
+      document.getElementById('btnContinuar').disabled = false;
+      filtrarClientes();
+    }
+
+    function filtrarClientes() {
+      var escrito = document.getElementById('buscarCliente').value;
+      var q = normalizar(escrito);
+      var contenedor = document.getElementById('listaClientes');
+      contenedor.innerHTML = '';
+
+      var coincidencias = clientes.filter(function (c) { return normalizar(c.nombre).indexOf(q) !== -1; });
+      coincidencias.forEach(function (c) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'cliente-item' + (c.nombre === clienteSeleccionado ? ' activo' : '');
+        var memoria = '';
+        if (c.etiqueta) memoria += c.etiqueta;
+        if (c.pendiente) memoria += (memoria ? ' · ' : '') + 'Pendiente: ' + c.pendiente;
+        btn.innerHTML = escapar(c.nombre) + (memoria ? '<span class="memoria">' + escapar(memoria) + '</span>' : '');
+        btn.onclick = function () { seleccionarCliente(c.nombre); };
+        contenedor.appendChild(btn);
+      });
+
+      // Antes solo se podía diagnosticar a los 3 clientes de la lista fija:
+      // si escribías un nombre nuevo, no había forma de continuar.
+      var yaExiste = clientes.some(function (c) { return normalizar(c.nombre) === q; });
+      if (escrito.trim() !== '' && !yaExiste) {
+        var btnNuevo = document.createElement('button');
+        btnNuevo.type = 'button';
+        btnNuevo.className = 'cliente-item nuevo' + (escrito.trim() === clienteSeleccionado ? ' activo' : '');
+        btnNuevo.innerHTML = 'Usar «' + escapar(escrito.trim()) + '»<span class="memoria">Cliente nuevo — se registra al generar el diagnóstico</span>';
+        btnNuevo.onclick = function () { seleccionarCliente(escrito.trim()); };
+        contenedor.appendChild(btnNuevo);
+      }
+
+      if (coincidencias.length === 0 && escrito.trim() === '') {
+        contenedor.innerHTML = '<div class="cargando">Todavía no hay clientes registrados. Escribe un nombre para empezar.</div>';
+      }
+    }
+
+    function irAPaso1() {
+      mostrarSolo(['paso1']);
+      actualizarDots(1);
+      cargarClientes();
+    }
+
+    function irAPaso2() {
+      if (!clienteSeleccionado) return;
+      document.getElementById('clienteActual').textContent = clienteSeleccionado;
+      mostrarSolo(['paso2']);
+      actualizarDots(2);
+    }
+
+    // ---- Paso 2: preguntas ----
+    function setCredito(valor) {
+      tieneCredito = valor;
+      document.getElementById('creditoSi').className = 'toggle-btn' + (valor === true ? ' activo' : '');
+      document.getElementById('creditoNo').className = 'toggle-btn' + (valor === false ? ' activo' : '');
+      document.getElementById('bancoCreditoWrap').style.display = valor ? 'block' : 'none';
+    }
+
+    function setCotiza(valor) {
+      recibeCotizaciones = valor;
+      document.getElementById('cotizaSi').className = 'toggle-btn' + (valor === true ? ' activo' : '');
+      document.getElementById('cotizaNo').className = 'toggle-btn' + (valor === false ? ' activo' : '');
+    }
+
+    /**
+     * Revisa que estén contestadas las preguntas que el motor necesita.
+     * Sin esto se podía generar un diagnóstico con el formulario vacío, y el
+     * resultado salía como "Prioridad 3 — sin brechas": una conclusión falsa
+     * con toda la apariencia de ser válida.
+     */
+    function faltantes() {
+      var falta = [];
+      ['giro', 'bancoCaptacion', 'bancoCambios', 'bancoCredito'].forEach(function (id) {
+        document.getElementById(id).className = '';
+        var extra = document.getElementById(id + 'Otro');
+        if (extra) extra.className = '';
+      });
+
+      if (!valorDe('giro')) { falta.push('El giro del negocio'); marcar('giro'); }
+      if (!valorDe('bancoCaptacion')) { falta.push('El banco de captación'); marcar('bancoCaptacion'); }
+      if (!valorDe('bancoCambios')) { falta.push('El banco de cambios'); marcar('bancoCambios'); }
+      if (tieneCredito === null) falta.push('Si tiene crédito con otro banco');
+      if (tieneCredito === true && !valorDe('bancoCredito')) { falta.push('El banco del crédito'); marcar('bancoCredito'); }
+      if (recibeCotizaciones === null) falta.push('Si recibe cotizaciones de otros bancos');
+      return falta;
+    }
+
+    function marcar(id) {
+      var sel = document.getElementById(id);
+      if (sel.value === VALOR_OTRO) document.getElementById(id + 'Otro').className = 'campo-faltante';
+      else sel.className = 'campo-faltante';
+    }
+
+    function recolectarRespuesta() {
+      return {
+        nombre: clienteSeleccionado,
+        giro: valorDe('giro'),
+        bancoPrincipalCaptacion: valorDe('bancoCaptacion'),
+        bancoCambios: valorDe('bancoCambios'),
+        tieneCreditoOtroBanco: tieneCredito === true,
+        bancoCredito: tieneCredito ? valorDe('bancoCredito') : '',
+        recibeCotizacionesOtrosBancos: recibeCotizaciones === true,
+        montoCompraDivisasMensual: document.getElementById('montoCompraDivisas').value.trim(),
+        montoVentaDivisasMensual: document.getElementById('montoVentaDivisas').value.trim(),
+        montoExportacionMensual: document.getElementById('montoExportacion').value.trim(),
+        montoImportacionMensual: document.getElementById('montoImportacion').value.trim(),
+        pendiente: document.getElementById('pendiente').value.trim()
+      };
+    }
+
+    // ---- Paso 3: generar y mostrar resultado ----
+    function generar() {
+      var falta = faltantes();
+      if (falta.length > 0) {
+        var html = '<div class="aviso-error"><b>Faltan datos por contestar:</b><ul>';
+        falta.forEach(function (f) { html += '<li>' + escapar(f) + '</li>'; });
+        html += '</ul></div>';
+        document.getElementById('avisoCampos').innerHTML = html;
+        return;
+      }
+      document.getElementById('avisoCampos').innerHTML = '';
+
+      mostrarSolo(['paso3']);
+      document.getElementById('resultadoContenido').innerHTML = '<div class="cargando">Generando PDF y guion en Drive…</div>';
+      actualizarDots(3);
+
+      google.script.run
+        .withSuccessHandler(mostrarResultado)
+        .withFailureHandler(function (err) {
+          document.getElementById('resultadoContenido').innerHTML =
+            '<div class="aviso-error"><b>No se pudo generar el diagnóstico.</b><br>' + escapar(err.message) + '</div>';
+        })
+        .guardarRespuestaYGenerar(recolectarRespuesta());
+    }
+
+    function mostrarResultado(resultado) {
+      var p = resultado.prioridad;
+      var esP1 = p.prioridad === 1;
+      var html = '';
+
+      if (resultado.avisoGuardado) {
+        html += '<div class="aviso-error">' + escapar(resultado.avisoGuardado) + '</div>';
+      }
+
+      html += '<div class="prioridad-card' + (esP1 ? ' p1' : '') + '">';
+      html += '<div class="prioridad-titulo">' + escapar(p.etiqueta) + '</div>';
+      html += '<div class="prioridad-motivo">' + escapar(p.motivo) + '</div>';
+      html += '</div>';
+
+      html += '<div class="seccion-label">Oportunidades detectadas</div>';
+      if (resultado.oportunidades.length === 0) {
+        html += '<div class="cargando">No se detectaron brechas con los datos capturados.</div>';
+      } else {
+        resultado.oportunidades.forEach(function (op) {
+          html += '<div class="oportunidad"><div class="producto">' + escapar(op.producto) + '</div>' +
+            '<div class="detalle">' + escapar(op.justificacion) + '</div></div>';
+        });
+      }
+
+      html += '<div class="seccion-label">Entregables generados</div>';
+      html += '<div class="link-generado"><a href="' + escapar(resultado.pdfUrl) + '" target="_blank">Abrir PDF para el asesor →</a></div>';
+      html += '<div class="link-generado"><a href="' + escapar(resultado.guionUrl) + '" target="_blank">Abrir guion de conversación →</a></div>';
+
+      document.getElementById('resultadoContenido').innerHTML = html;
+    }
+
+    function reiniciar() {
+      clienteSeleccionado = null;
+      tieneCredito = null;
+      recibeCotizaciones = null;
+      document.getElementById('buscarCliente').value = '';
+      document.getElementById('btnContinuar').disabled = true;
+      ['giro', 'bancoCaptacion', 'bancoCambios', 'bancoCredito'].forEach(function (id) {
+        document.getElementById(id).value = '';
+        document.getElementById(id + 'Otro').value = '';
+        document.getElementById(id + 'Otro').style.display = 'none';
+      });
+      ['montoCompraDivisas', 'montoVentaDivisas', 'montoExportacion', 'montoImportacion', 'pendiente']
+        .forEach(function (id) { document.getElementById(id).value = ''; });
+      document.getElementById('bloqueOpcional').style.display = 'none';
+      document.getElementById('avisoCampos').innerHTML = '';
+      setCredito(null);
+      setCotiza(null);
+      document.getElementById('bancoCreditoWrap').style.display = 'none';
+      filtrarClientes();
+      irAPaso0();
+    }
+
+    irAPaso0();
+  </script>
+</body>
+</html>

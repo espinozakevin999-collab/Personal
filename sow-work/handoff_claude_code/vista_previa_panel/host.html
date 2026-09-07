@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Banco de pruebas del panel</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #F1F3F4; }
+    .barra { padding: 8px 12px; font-size: 12px; color: #444; background: #fff; border-bottom: 1px solid #ddd; }
+    .marco {
+      /* El panel lateral de Google Sheets mide 300px de ancho. Se reproduce
+         igual para cazar recortes y texto encimado antes de instalarlo. */
+      width: 300px; height: 640px; border: none; background: #fff;
+      box-shadow: -1px 0 4px rgba(0,0,0,.15);
+    }
+    .contenedor { display: flex; justify-content: flex-end; }
+  </style>
+</head>
+<body>
+  <div class="barra">Simulación del panel lateral de Google Sheets — ancho real 300px</div>
+  <div class="contenedor"><iframe class="marco" src="sidebar.html"></iframe></div>
+</body>
+</html>
