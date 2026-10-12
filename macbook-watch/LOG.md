@@ -454,3 +454,41 @@ Usando el precio US retail del config base (15/16 núcleos), $3,099 USD, tipo de
 Motivos: (1) Corrección importante: el precio real de Apple Educación MX para el config objetivo (48GB/1TB) es $65,199-$70,649 MXN — muy por encima del presupuesto de $50,000-58,000 MXN y muy por encima de la estimación no-verificada de ~$52,900 MXN que se venía repitiendo desde hace semanas. Ninguna opción mexicana verificada hoy cae dentro del presupuesto. (2) En cambio, el precio de lista de Apple US ($3,099 USD) puesto en México en la maleta sin pagar sales tax ($57,043 MXN) le gana a Apple Educación MX por **$8,157 MXN (~$443 USD)** — una brecha real, verificada hoy, mayor al umbral de ~$300 USD que marca esta rutina para considerar acción, y la primera vez que esta brecha es claramente favorable (corridas anteriores la reportaban casi empatada, con datos no verificados). Esto no llega a **ACCIÓN URGENTE** porque no hay confirmación de que Kevin ya tenga a alguien en EE.UU. listo para traerla (condición necesaria de esta regla), y porque es precio de lista, no una oferta — B&H/Amazon/Best Buy (donde suele haber descuentos) estuvieron bloqueados hoy y no se pudieron verificar. (3) El evento del 13-oct es oficial pero no incluye Mac. (4) El rumor del 27-oct (MacBook Pro OLED táctil) usaría los mismos chips M5 Pro/Max actuales — no hay razón para esperar un chip mejor, pero si se confirma, podría: (a) presionar a la baja el precio del M5 Pro actual como "modelo anterior", o (b) agotar inventario antes del Buen Fin. Vale la pena revisar precios justo después del 27-oct. **Recomendación concreta para Kevin: si tiene o puede conseguir pronto a alguien de confianza viajando desde EE.UU. (idealmente desde un estado sin sales tax, o comprando en B&H con Payboo), la ruta EE.UU.-maleta hoy es la mejor opción real verificada — vale la pena buscar esa opción antes de esperar al Buen Fin.** Si no tiene a nadie disponible, seguir esperando al Buen Fin (13-17 nov) sigue siendo razonable, ya que ahí también podría aparecer una promo mexicana sobre el config objetivo.
 
 ---
+
+## 2026-10-12 (segunda corrida, ~14:00 UTC)
+
+**Nota metodológica**: esta es la segunda corrida del mismo día (la anterior fue ~05:38 UTC). Acceso de red funcionó igual que en la mañana. Se reverificaron en vivo los mismos precios (misma técnica: curl + user-agent de navegador, JSON embebido en el HTML) para confirmar si algo cambió en ~8.5 horas. **Resultado: sin cambios en ningún precio verificado, sin noticias nuevas relevantes.** Se reporta breve.
+
+### Precios reverificados hoy (config objetivo: 14" M5 Pro, 48GB, 1TB) — sin cambio vs. la corrida de la mañana
+| Tienda | Config exacta | Precio | Enlace | Hora de verificación |
+|---|---|---|---|---|
+| Apple Educación MX | 14" M5 Pro, CPU 15/GPU 16, 48GB, 1TB | **$65,199 MXN** (igual que ~05:38 UTC) | [config](https://www.apple.com/mx-edu/shop/buy-mac/macbook-pro/14-pulgadas-space-black-pantalla-de-vidrio-est%C3%A1ndar-chip-m5-pro-de-apple-cpu-de-15-n%C3%BAcleos-gpu-de-16-n%C3%BAcleos-48-gb-de-memoria-1tb-de-almacenamiento) | verificado 2026-10-12 ~14:00 UTC (JSON-LD `offers.price`) |
+| Apple Educación MX | 14" M5 Pro, CPU 18/GPU 20, 48GB, 1TB | $70,649 MXN (sin cambio) | [config](https://www.apple.com/mx-edu/shop/buy-mac/macbook-pro/14-pulgadas-space-black-pantalla-de-vidrio-est%C3%A1ndar-chip-m5-pro-de-apple-cpu-de-18-n%C3%BAcleos-gpu-de-20-n%C3%BAcleos-48-gb-de-memoria-1tb-de-almacenamiento) | verificado ~14:00 UTC |
+| Apple MX retail (sin descuento edu) | mismo config base 48GB/1TB | $69,999 MXN (sin cambio) | [config](https://www.apple.com/mx/shop/buy-mac/macbook-pro/14-pulgadas-space-black-pantalla-de-vidrio-est%C3%A1ndar-chip-m5-pro-de-apple-cpu-de-15-n%C3%BAcleos-gpu-de-16-n%C3%BAcleos-48-gb-de-memoria-1tb-de-almacenamiento) | verificado ~14:00 UTC |
+| Apple US retail | 14" M5 Pro, CPU 15/GPU 16, 48GB, 1TB | $3,099 USD (sin cambio) | [config](https://www.apple.com/shop/buy-mac/macbook-pro/14-inch-space-black-standard-display-apple-m5-pro-chip-15-core-cpu-16-core-gpu-48gb-memory-1tb-storage) | verificado ~14:00 UTC |
+| Costco MX (referencia, 16" no es el config objetivo) | 16" M5 Pro, 48GB, 1TB | $78,999 MXN (sin cambio) | [Costco MX #702690](https://www.costco.com.mx/Negro/Apple-MacBook-Pro-16-M5-Pro-48GB-1TB-SSD-Negro-Espacial/p/702690) | verificado ~14:00 UTC |
+
+**Tipo de cambio**: $18.406744 MXN/USD — misma lectura de open.er-api.com que la de esta mañana (su fuente actualiza una vez al día; no hay dato más reciente disponible). [open.er-api.com/v6/latest/USD](https://open.er-api.com/v6/latest/USD)
+
+**Cálculo maleta (sin cambio vs. la corrida de la mañana)**: óptimo (sin sales tax) ≈ **$57,044 MXN**; típico (~8% tax) ≈ **$61,607 MXN**. Vs. Apple Educación MX ($65,199 MXN): la maleta sigue ganando por ~$8,155 MXN (~$443 USD) en el caso óptimo.
+
+### No se pudieron abrir hoy
+- **B&H Photo**: HTTP 403 (bloqueo anti-bot), igual que en la corrida de la mañana.
+- **Amazon MX**: página con Captcha, sin datos de producto.
+- **Amazon US**: HTTP 503.
+- **Best Buy**: sin respuesta de conexión.
+- **Liverpool**: HTTP 404 en la URL de búsqueda probada.
+- **MacStore**: HTTP 404 en la URL de búsqueda probada.
+- **iShop**: falló la conexión (túnel cerrado a medio camino).
+- **Mercado Libre**: no se intentó (histórico de bloqueo constante).
+
+### Noticias nuevas desde la corrida de ~05:38 UTC de hoy
+Se revisaron de nuevo los 4 feeds (MacRumors, 9to5Mac, Apple Newsroom, AppleInsider). **Sin noticias nuevas relevantes sobre MacBook Pro/M5/M6/M7/OLED desde la corrida de esta mañana.** Lo publicado en las últimas horas es sobre iPad mini OLED, Apple TV 4K/HomeView/HomePod mini y rebajas de Mac mini/Mac Studio — ninguno es el config objetivo ni cambia la decisión. Apple Newsroom (oficial) no tiene ninguna entrada sobre Mac desde el 29-sept-2026. El evento "Welcome home" es mañana (13-oct) y su alcance confirmado sigue sin incluir Mac.
+
+### Próximas fechas del calendario (sin cambio)
+**13-oct-2026** (evento Apple oficial, mañana, confirmado SIN Mac) → **27-oct-2026** (rumor, no oficial: posible lanzamiento de MacBook Pro OLED táctil con M5 Pro/Max actuales) → **13-17-nov-2026** (El Buen Fin, oficial) → **27-nov-2026** (Black Friday EE.UU.).
+
+### Veredicto: **OFERTA A CONSIDERAR** (sin cambios vs. la corrida de la mañana)
+Nada cambió en las ~8.5 horas entre corridas: mismos precios verificados, mismo tipo de cambio, sin noticias nuevas. Se mantienen los mismos motivos que la corrida anterior — la ruta EE.UU.-maleta ($57,044 MXN óptimo) sigue ganándole a Apple Educación MX ($65,199 MXN) por ~$443 USD, pero no hay confirmación de que Kevin ya tenga a alguien en EE.UU. listo para traerla, así que no se dispara ACCIÓN URGENTE. Próxima fecha clave: evento del 13-oct (mañana, sin Mac esperado) y revisar de nuevo justo después del 27-oct.
+
+---
